@@ -23,7 +23,7 @@ class(kyphosis$Kyphosis)
 head(kyphosis$Age)
 class(kyphosis$Age)
 
-#Construction de l'arbre de donées
+#Construction de l'arbre de données
 tree = rpart(Kyphosis ~ Age + Number+Start,data=kyphosis)
 print(tree)
 plot(tree)
