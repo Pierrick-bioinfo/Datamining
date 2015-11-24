@@ -8,5 +8,5 @@ This contains R scripts for basic data mining algorithms. Some of the data used 
 - Apriori algorithm
 - Supervized learning
 - Binary decision trees
-- Native bayesian classifier
+- Naive bayesian classifier
 - Cross validation
