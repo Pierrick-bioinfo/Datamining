@@ -1,0 +1,110 @@
+---
+title: "TD 1 Clustering"
+author: "Pierrick Wainschtein"
+date: "17 novembre 2015"
+output: pdf_document
+---
+
+# Lecture des données
+
+
+```{r}
+setwd("F:/Documents/_Cours/Cours 2015 - 2016/M1 - S1/03 - Data mining/TD/Datamining/Data")
+# On défini le répertoire de travail
+getwd() # On vérifie que le répertoire de travail est le bon
+expression <- as.matrix(read.table("expression.tab",as.is=T, header=TRUE, sep="")) 
+
+annotation <- read.table("annotation.tab",as.is=T)
+
+class(expression)
+class(annotation) 
+
+str(expression) 
+str(annotation)
+
+
+```
+
+# Les k-moyennes
+
+```{r}
+# Plot de l'expression des 2 gènes
+
+plot(expression[,1])
+plot(expression[,2])
+plot(expression[,1:2], col=kmeans(expression[,1:2],2)$cluster)
+
+DDXY3<-expression[,"DDX3Y"]
+RPS4Y1<-expression[,"RPS4Y1"]
+DDXY3_RPS4Y1<-expression[,c("DDX3Y","RPS4Y1")]
+
+visual<-kmeans(DDXY3_RPS4Y1, centers = 1)$betweenss
+plot(visual, type = "p", col="red", xlab = "clusters")
+
+# Graphique de la distance interclasse entre les différents nombres de clusters
+
+ # Pour toutes nos valeurs de genes on fait un kmean avec x cluster  en regardant la distance intergene
+inter = c(0)
+for (i in 2:56)
+{
+  inter=c(inter, kmeans(DDXY3_RPS4Y1,i)$betweenss)
+  
+}
+plot(inter, col="blue", xlab = "Nombre de clusters")
+
+```
+
+Le K semblant être le plus intéressant se situe entre 6 et 7. C'est le meilleur compromis entre nombre de clusters et distance interclasses.
+
+```{r}
+#Fonction avec le resultat du clustering
+graphStade = function (data) {
+km =  kmeans(data, centers = 7)
+plot(DDXY3_RPS4Y1, pch=km$cluster, col = factor(annotation$grade), xlab = "" )
+}
+graphStade(DDXY3_RPS4Y1)
+```
+
+Nous remarquons que c'est le sexe qui influence les niveaux d'expressions de ces gènes. D'après NCBI, les deux gènes DDX3Y et RPS4Y1 se situent sur les chromosomes sexuels, ce qui confirme nos observations.
+
+
+```{r, echo=FALSE}
+plot(kmeans(expression,6)$cluster, col=factor(annotation[,2]))
+legend("topright",legend=c(levels(as.factor(annotation[,2]))),col=c(1:length(levels(
+factor(annotation[,2])))),pch=1)
+```
+
+```{r, echo=FALSE}
+plot(kmeans(expression,4)$cluster, col=factor(annotation[,3]))
+legend("topleft",legend=c(levels(as.factor(annotation[,3]))),col=c(1:length(levels(
+factor(annotation[,3])))),pch=1)
+```
+
+Nous pouvons remarquer que tous les individus sains que ce soit pour le grade ou le stade des tumeurs sont regroupés au sein d'un même cluster. Cependant, pour les autres grades ou stades, le kmean ne permet pas de regrouper les individus similaires dans les groupes.
+
+# Clustering hiérarchique
+## Hclust
+```{r}
+
+# dist (expression)
+#hclust prend en argument une matrice de distance (ce que expression ne donne pas), "dist" la calcule
+
+x<-hclust(dist(expression))
+plot(x, main="Dendrogramme selon grade", labels = factor(annotation$grade))
+plot(x, main="Dendrogramme selon stade", labels = factor(annotation$stade))
+plot(x, main="Dendrogramme selon échantillon", labels = factor(rownames(expression)))
+```
+
+## Heatmap
+```{r}
+# Heatmap sur la matrice d'expression
+rc<-rainbow(nrow(annotation), start = 0, end = 0.9)
+heatmap(expression, RowSideColors = rc)
+
+greenred = colorRampPalette(c("green","black","red"))
+heatmap(expression, col=greenred(32), main = "Heatmap sur les données d'expression")
+heatmap(expression, RowSideColors = c("G0"="green", "G1"="red", "G2"="black", "G3"="blue")[annotation$grade], col = greenred(32), main = "Heatmap sur les grades de tumeurs")
+heatmap(expression,RowSideColors=c("T0"="pink","Ta"="blue", "T1"="green","T2"="yellow","T3"="orange","T4"="red")[annotation[,2]], main = "Heatmap sur les stades de tumeurs")
+heatmap(expression,RowSideColors=c("F"="green","M"="red")[annotation[,1]], main = "Heatmap selon les individus")
+```
+Nous pouvons constater que nous avons une répartition sur les différentes heatmap sensiblement identiques aux dendrogrammes sur les données de stade et grade : regroupement des individus dans certains clusters, mais dans une certaine limite.

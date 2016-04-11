@@ -1,0 +1,228 @@
+---
+title: "TD 2 Item sets fréquents"
+author: "Pierrick Wainschtein"
+date: "18 novembre 2015"
+output: pdf_document
+---
+
+# Utilisation d'apriori
+
+```{r}
+# Préparation
+
+library(arules)
+
+# Construction de transactions à la main
+
+a_list <- list(
+  c("a","b","c"),
+  c("a","b"),
+  c("a","b","d"),
+  c("c","e"),
+  c("a","b","d","e"),
+  c("e","b","d"),
+  c("a","b","e")
+  )
+
+
+names(a_list)<-paste("Tr",c(1:7), sep="")
+a_list
+trans <-as(a_list, "transactions")
+itemFrequencyPlot(trans, support = 0.7)
+summary(trans)
+image(trans)
+
+
+```
+
+
+
+```{r}
+# Ensembles de bases pour des transactions :
+transitemfreq = apriori(trans,parameter=list(support = 0.3,target="frequent itemsets") ) # Utiliser  closed frequent itemsets pour supprimer les proba identiques (ex on suprime A à 5/7 car on a AB à 5/7)
+transitemfreq
+summary(transitemfreq)
+write(transitemfreq)
+
+# En faisant varier le support à 0.5
+transitemfreq = apriori(trans,parameter=list(support = 0.7,target="frequent itemsets") )
+transitemfreq
+write(transitemfreq)
+
+# En faisant varier le support à 0.7 en regardant les motifs maximaux
+transitemfreq = apriori(trans,parameter=list(support = 0.7,target="maximally frequent itemsets") )
+transitemfreq
+write(transitemfreq)
+
+# En faisant varier le support à 0.7 en regardant les règles d'association
+transitemfreq = apriori(trans,parameter=list(support = 0.7,target="rules") )
+transitemfreq
+write(transitemfreq)
+
+# En faisant varier le support à 0.7 en regardant les motifs maximaux de longueur min de 2
+transitemfreq = apriori(trans,parameter=list(support = 0.7,target="maximally frequent itemsets", minlen = 2) )
+transitemfreq
+write(transitemfreq)
+
+```
+
+Items set fermés max les plus fréquents : ab et e. Cela pouvait se voir à l'oeil nu sur l'image.
+
+
+Fonction qui exécute un apriori pour tous les supports entre 0.3 et 1 avec un pas de 0.2 et selon différents types de règles.
+
+```{r}
+rul<-c("frequent itemsets","maximally frequent itemsets","rules","maximally frequent itemsets")
+for( i in 1:length(rul)) 
+{
+  for( j in (seq(0.3,1, 0.2)))
+       {
+  transitemfreq = apriori(trans,parameter=list(support = j ,target=rul[i], minlen = 2) )
+  write(transitemfreq)
+  }
+}
+```
+
+
+# Apriori sur les annotations cliniques
+```{r}
+getwd()
+setwd("C:/Users/Pierrick/Desktop")
+
+# Changement du tableau en transactions
+b_list <-read.table("annotation.tab")
+trans <- as(b_list, "transactions")
+image(trans)
+write(trans)
+
+# A priori sur les transactions. création d'une fonction
+aprifonc =function(param)
+{
+  for( i in 1:length(rul)) 
+  {
+    for( j in (seq(0.3,1, 0.2)))
+    {
+      transitemfreq = apriori(param,parameter=list(support = j ,target=rul[i], minlen = 2) )
+      write(transitemfreq)
+    }
+  }
+}
+aprifonc(trans)
+```
+
+On a un itemsef fréquent sexe = M et grade = 3. 
+
+
+```{r}
+transitemfreq = apriori(trans, parameter=list(support = 0.2, target="rules", confidence = 0.9 ) )
+write(transitemfreq)
+```
+
+
+
+# Apriori sur les données d'expression
+
+```{r}
+expression<-read.table("expression.tab" ,as.is=T, header= TRUE)
+annotation<-read.table("annotation.tab" ,as.is=T, header= TRUE)
+annotmal<-annotation[0:52,]
+
+malade<-expression[0:52,]
+sain<-expression[53:57,]
+
+dim(malade)
+# On a bien 52 observations
+
+dim(sain)
+# On a bien 5 observations
+
+moysain<-apply(sain,2,mean)
+centerdata<-scale(malade,center=moysain,scale=FALSE)
+
+discretise <- function(x) {
+  if(x>1 || x< -1) {
+    1
+  }
+  else  {
+    0
+  }
+}
+
+
+discretdata<-apply(centerdata,c(1,2),discretise)
+
+dim(discretdata)
+sum(discretdata)/(52*184)
+```
+
+???
+
+```{r}
+trans <- as(discretdata, "transactions")
+write(trans)
+
+itemFrequencyPlot(trans, support = 1)
+
+image(trans)
+
+
+transitemfreq = apriori(trans, parameter=list(support = 0.95, target="frequent itemsets",minlen= 2, maxlen = 30))
+write(transitemfreq)
+
+# Un support à 0.95 donne encore beaucoup de résultats
+
+transitemfreq2 = apriori(trans, parameter=list(support = 0.90, target="closed frequent itemsets",minlen= 2, maxlen = 30))
+write(transitemfreq2)
+# Nombre de données exploitable pour un support à 0.9 pour les closed frequent itemsets
+
+```
+\newpage
+
+# Extraction de règles entre les gènes
+
+```{r}
+transitemfreq = apriori(trans, parameter=list(support = 0.98, target="rules",maxlen=2))
+write(transitemfreq)
+```
+
+Cela peut biologiquement correspondre à des réseaux de gènes.
+
+
+Règles permettant d'expliquer le gène COL4A1.
+
+```{r}
+write(apriori(trans, parameter=list(support = 0.95, confidence = 0.95, target="rules",minlen= 5, maxlen = 30 ), appearance = list(rhs = c("COL4A1"),default="lhs")))
+```
+
+Il y a quelques gènes qui sont très associés avec COL4A1
+
+\newpage
+
+# Extraction de règle pour les annotations cliniques
+
+```{r}
+lx = lapply(row.names(malade),function(x)
+{
+  return(c(colnames(discretdata)[which(discretdata[x,] == 1)], as.character(annotmal[x,])))
+})
+
+trans = as(lx,"transactions")
+image(trans)
+ 
+
+# On ne met pas G0 ni T0 dans notre apriori
+
+transitemfreqm = apriori(trans, parameter=list(support = 0.85, confidence = 0.85, target="rules"), appearance = list(rhs = c("T3","T4","Ta","T2","T1","G3","G2","G1", "M"),default="lhs"))
+
+# Les seuils à 0.85 sont trop hauts
+write(transitemfreqm)
+
+
+
+transitemfreq2 = apriori(trans, parameter=list(support = 0.8, confidence = 0.8, target="rules"), appearance = list(rhs = c("T3","T4","Ta","T2","T1","G3","G2","G1", "M"),default="lhs"))
+
+write(transitemfreq2)
+
+```
+
+On a quelques gènes fortement associés à l'état malade.
